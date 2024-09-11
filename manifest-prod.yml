@@ -44,6 +44,7 @@ settings:
       - message.im
       - message.mpim
       - tokens_revoked
+      - reaction_added
   interactivity:
     is_enabled: true
     request_url: https://TODO.amazonaws.com/slack/events

@@ -525,8 +525,66 @@ def respond_to_new_message(
                 ts=wip_reply["message"]["ts"],
                 text=text,
             )
+def respond_to_reaction(
+    context: BoltContext,
+    payload: dict,
+    client: WebClient,
+    logger: logging.Logger,
+):
+    try:
+        logger.info(f"Payload: {payload}")
+        # Extract channel and timestamp of the reacted message
+        channel_id = payload["item"]["channel"]
+        message_ts = payload["item"]["ts"]
+        reaction = payload["reaction"]
 
+        # Map reaction to language code
+        reaction_to_language = {
+            "us": "English",
+            "jp": "Japanese",
+            "flag-vn": "Vietnamese"
+        }
+        target_language = reaction_to_language.get(reaction)
+        logger.info(f"Target language: {target_language}")
+        if target_language is None:
+            logger.info(f"Unsupported reaction: {reaction}")
+            return
 
+        # Fetch the message details
+        response = client.conversations_replies(
+            channel=channel_id,
+            ts=message_ts,
+            limit=3,
+            inclusive=True,
+        )
+        messages = response.get("messages", [])
+        logger.info(f"Messages: {messages}")
+        if messages:
+            reacted_message = messages[0]
+            logger.info(f"Reacted message: {reacted_message}")
+
+            # Translate the message to Japanese
+            translated_text = translate(
+                openai_api_key=context.get("OPENAI_API_KEY"),
+                context=context,
+                text=reacted_message["text"],
+                target_language=target_language,
+            )
+            logger.info(f"Translated text: {translated_text}")
+
+            # Post the translated message to the same thread
+            client.chat_postMessage(
+                channel=channel_id,
+                thread_ts=message_ts,
+                text=translated_text
+            )
+        else:
+            logger.warning("No message found for the given timestamp.")
+
+    except SlackApiError as e:
+        logger.error(f"Error fetching message: {e.response['error']}")
+    except BaseException as e:
+        logger.exception(f"Failed to translate message: {e}")
 #
 # Summarize a thread
 #
@@ -1052,6 +1110,9 @@ def register_listeners(app: App):
     # Chat with the bot
     app.event("app_mention")(ack=just_ack, lazy=[respond_to_app_mention])
     app.event("message")(ack=just_ack, lazy=[respond_to_new_message])
+
+    # React about reaction
+    app.event("reaction_added")(ack=just_ack, lazy=[respond_to_reaction])
 
     # Summarize a thread
     app.shortcut("summarize-thread")(show_summarize_option_modal)

@@ -17,3 +17,4 @@ package.json
 package-lock.json
 .python-version
 unzip_requirements.py
+export_valiables.sh

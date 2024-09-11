@@ -5,6 +5,7 @@ from openai.lib.azure import AzureOpenAI
 from slack_bolt import BoltContext
 
 from .openai_constants import GPT_3_5_TURBO_0613_MODEL
+from .openai_constants import GPT_4O_MINI_MODEL
 
 # All the supported languages for Slack app as of March 2023
 _locale_to_lang = {
@@ -33,13 +34,16 @@ def from_locale_to_lang(locale: Optional[str]) -> Optional[str]:
 _translation_result_cache = {}
 
 
-def translate(*, openai_api_key: Optional[str], context: BoltContext, text: str) -> str:
+def translate(*, openai_api_key: Optional[str], context: BoltContext, text: str, target_language: Optional[str] = None) -> str:
     if openai_api_key is None or len(openai_api_key.strip()) == 0:
         return text
 
-    lang = from_locale_to_lang(context.get("locale"))
-    if lang is None or lang == "English":
-        return text
+    if target_language is None or len(target_language.strip()) == 0:
+        lang = from_locale_to_lang(context.get("locale"))
+        if lang is None or lang == "English":
+            return text
+    else:
+        lang = target_language
 
     cached_result = _translation_result_cache.get(f"{lang}:{text}")
     if cached_result is not None:
@@ -57,7 +61,7 @@ def translate(*, openai_api_key: Optional[str], context: BoltContext, text: str)
             base_url=context.get("OPENAI_API_BASE"),
         )
     response = client.chat.completions.create(
-        model=GPT_3_5_TURBO_0613_MODEL,
+        model=GPT_4O_MINI_MODEL,
         messages=[
             {
                 "role": "system",
@@ -86,6 +90,7 @@ def translate(*, openai_api_key: Optional[str], context: BoltContext, text: str)
         logit_bias={},
         user="system",
     )
+
     translated_text = response.model_dump()["choices"][0]["message"].get("content")
     _translation_result_cache[f"{lang}:{text}"] = translated_text
     return translated_text

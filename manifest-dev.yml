@@ -37,6 +37,7 @@ settings:
       - message.groups
       - message.im
       - message.mpim
+      - reaction_added
   interactivity:
     is_enabled: true
   socket_mode_enabled: true
