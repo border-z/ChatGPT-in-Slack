@@ -28,6 +28,7 @@ oauth_config:
       - files:read
       - files:write
       - im:write
+      - reactions:read
 settings:
   event_subscriptions:
     bot_events:
