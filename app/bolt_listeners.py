@@ -532,7 +532,6 @@ def respond_to_reaction(
     logger: logging.Logger,
 ):
     try:
-        logger.info(f"Payload: {payload}")
         # Extract channel and timestamp of the reacted message
         channel_id = payload["item"]["channel"]
         message_ts = payload["item"]["ts"]
@@ -545,7 +544,6 @@ def respond_to_reaction(
             "flag-vn": "Vietnamese"
         }
         target_language = reaction_to_language.get(reaction)
-        logger.info(f"Target language: {target_language}")
         if target_language is None:
             logger.info(f"Unsupported reaction: {reaction}")
             return
