@@ -556,10 +556,8 @@ def respond_to_reaction(
             inclusive=True,
         )
         messages = response.get("messages", [])
-        logger.info(f"Messages: {messages}")
         if messages:
             reacted_message = messages[0]
-            logger.info(f"Reacted message: {reacted_message}")
 
             # Translate the message to Japanese
             translated_text = translate(
@@ -568,7 +566,6 @@ def respond_to_reaction(
                 text=reacted_message["text"],
                 target_language=target_language,
             )
-            logger.info(f"Translated text: {translated_text}")
 
             # Post the translated message to the same thread
             client.chat_postMessage(
