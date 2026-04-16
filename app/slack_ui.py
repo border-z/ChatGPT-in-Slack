@@ -4,14 +4,116 @@ from slack_bolt import BoltContext
 from slack_sdk.errors import SlackApiError
 from app.i18n import translate
 from app.openai_constants import (
-    GPT_3_5_TURBO_MODEL,
-    GPT_4_MODEL,
-    GPT_4_32K_MODEL,
     GPT_4O_MODEL,
     GPT_4O_MINI_MODEL,
+    GPT_4_1_MODEL,
+    GPT_4_1_MINI_MODEL,
+    GPT_5_3_CHAT_LATEST_MODEL,
+    GPT_5_4_MODEL,
+    GPT_5_4_MINI_MODEL,
+    GPT_5_4_NANO_MODEL,
+    GPT_5_2_CHAT_LATEST_MODEL,
+    GPT_5_2_MODEL,
+    GPT_5_1_CHAT_LATEST_MODEL,
+    GPT_5_1_MODEL,
+    GPT_5_CHAT_LATEST_MODEL,
+    GPT_5_MODEL,
+    GPT_5_MINI_MODEL,
+    GPT_5_NANO_MODEL,
+    O3_MODEL,
+    O4_MINI_MODEL,
 )
-from app.slack_constants import TIMEOUT_ERROR_MESSAGE
+from app.slack_constants import TIMEOUT_ERROR_MESSAGE, MAX_MESSAGE_LENGTH
 from app.slack_ops import extract_state_value
+
+
+# ----------------------------
+# Translate
+# ----------------------------
+
+
+def _build_translation_result_modal(blocks: List[dict]) -> dict:
+    return {
+        "type": "modal",
+        "callback_id": "translate-message",
+        "title": {"type": "plain_text", "text": "Translate the thread"},
+        "close": {"type": "plain_text", "text": "Close"},
+        "blocks": blocks,
+    }
+
+
+def build_translation_result_modal(*, context: BoltContext, payload: dict) -> dict:
+    text = json.loads(payload["private_metadata"]).get("text")
+    openai_api_key = context.get("OPENAI_API_KEY")
+
+    try:
+        translated = translate(
+            openai_api_key=openai_api_key, context=context, text=text
+        )
+        blocks = []
+        remaining = translated
+
+        while remaining:
+            chunk = remaining[: MAX_MESSAGE_LENGTH - 6]
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": f"```{chunk}```"},
+                }
+            )
+            remaining = remaining[MAX_MESSAGE_LENGTH - 6 :]
+
+        return _build_translation_result_modal(blocks)
+    except Exception as e:
+        blocks = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f":warning: *My apologies!* An error occurred while translating the text: `{e}`",
+                },
+            }
+        ]
+        return _build_translation_result_modal(blocks)
+
+
+def build_translation_modal(*, body: dict) -> dict:
+    text = body.get("message", {}).get("text")
+
+    if len(text) >= (MAX_MESSAGE_LENGTH - 6):  # 6 is for the Markdown formatting
+        return build_translation_wip_modal(
+            text="Text is too long. Translation is only available for text under 3000 characters."
+        )
+
+    return {
+        "type": "modal",
+        "callback_id": "translate-message",
+        "title": {"type": "plain_text", "text": "Translate the thread"},
+        "private_metadata": json.dumps({"text": text}),
+        "submit": {"type": "plain_text", "text": "Translate"},
+        "close": {"type": "plain_text", "text": "Close"},
+        "blocks": [
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": f"```{text}```"},
+            }
+        ],
+    }
+
+
+def build_translation_wip_modal(text: str) -> dict:
+    return {
+        "type": "modal",
+        "callback_id": "translate-message",
+        "title": {"type": "plain_text", "text": "Translate the thread"},
+        "close": {"type": "plain_text", "text": "Close"},
+        "blocks": [
+            {
+                "type": "section",
+                "text": {"type": "plain_text", "text": text},
+            },
+        ],
+    }
 
 
 # ----------------------------
@@ -29,7 +131,7 @@ def build_summarize_option_modal(*, context: BoltContext, body: dict) -> dict:
             "Could you summarize the discussion in 200 characters or less?"
         ),
     )
-    thread_ts = body.get("message").get("thread_ts", body.get("message").get("ts"))
+    thread_ts = body["message"].get("thread_ts", body["message"].get("ts"))
     where_to_display_options = [
         {
             "text": {
@@ -202,7 +304,7 @@ def build_summarize_error_modal(e: Exception) -> dict:
 
 DEFAULT_HOME_TAB_MESSAGE = (
     "To enable this app in this Slack workspace, you need to save your OpenAI API key. "
-    "Visit <https://platform.openai.com/account/api-keys|your developer page> to grap your key!"
+    "Visit <https://platform.openai.com/account/api-keys|your developer page> to grab your key!"
 )
 
 DEFAULT_HOME_TAB_CONFIGURE_LABEL = "Configure"
@@ -330,6 +432,7 @@ def build_home_tab(
 
 def build_configure_modal(context: BoltContext) -> dict:
     already_set_api_key = context.get("OPENAI_API_KEY")
+    saved_model = context.get("OPENAI_MODEL")
     api_key_text = "Save your OpenAI API key:"
     submit = "Submit"
     cancel = "Cancel"
@@ -346,16 +449,60 @@ def build_configure_modal(context: BoltContext) -> dict:
 
     options = [
         {
-            "text": {"type": "plain_text", "text": "GPT-3.5 Turbo"},
-            "value": GPT_3_5_TURBO_MODEL,
+            "text": {"type": "plain_text", "text": "GPT-5.4"},
+            "value": GPT_5_4_MODEL,
         },
         {
-            "text": {"type": "plain_text", "text": "GPT-4 8K"},
-            "value": GPT_4_MODEL,
+            "text": {"type": "plain_text", "text": "GPT-5.4-mini"},
+            "value": GPT_5_4_MINI_MODEL,
         },
         {
-            "text": {"type": "plain_text", "text": "GPT-4 32K"},
-            "value": GPT_4_32K_MODEL,
+            "text": {"type": "plain_text", "text": "GPT-5.4-nano"},
+            "value": GPT_5_4_NANO_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "GPT-5.3-chat-latest"},
+            "value": GPT_5_3_CHAT_LATEST_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "GPT-5.2-chat-latest"},
+            "value": GPT_5_2_CHAT_LATEST_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "GPT-5.2"},
+            "value": GPT_5_2_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "GPT-5.1-chat-latest"},
+            "value": GPT_5_1_CHAT_LATEST_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "GPT-5.1"},
+            "value": GPT_5_1_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "GPT-5-chat-latest"},
+            "value": GPT_5_CHAT_LATEST_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "GPT-5"},
+            "value": GPT_5_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "GPT-5-mini"},
+            "value": GPT_5_MINI_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "GPT-5-nano"},
+            "value": GPT_5_NANO_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "GPT-4.1"},
+            "value": GPT_4_1_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "GPT-4.1-mini"},
+            "value": GPT_4_1_MINI_MODEL,
         },
         {
             "text": {"type": "plain_text", "text": "GPT-4o"},
@@ -364,6 +511,14 @@ def build_configure_modal(context: BoltContext) -> dict:
         {
             "text": {"type": "plain_text", "text": "GPT-4o-mini"},
             "value": GPT_4O_MINI_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "o3"},
+            "value": O3_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "o4-mini"},
+            "value": O4_MINI_MODEL,
         },
     ]
     return {
@@ -385,6 +540,7 @@ def build_configure_modal(context: BoltContext) -> dict:
                         "text": "Paste your API key starting with sk-...",
                     },
                 },
+                "optional": already_set_api_key is not None,
             },
             {
                 "type": "input",
@@ -394,7 +550,16 @@ def build_configure_modal(context: BoltContext) -> dict:
                     "type": "static_select",
                     "action_id": "input",
                     "options": options,
-                    "initial_option": options[0],
+                    **(
+                        {
+                            "initial_option": next(
+                                (opt for opt in options if opt["value"] == saved_model),
+                                options[0],
+                            )
+                        }
+                        if already_set_api_key is not None
+                        else {"initial_option": options[0]}
+                    ),
                 },
             },
         ],
@@ -523,10 +688,10 @@ def build_proofreading_result_modal(
     result: str,
     payload: dict,
 ) -> dict:
-    original_text = extract_state_value(payload, "original_text").get("value")
+    original_text = extract_state_value(payload, "original_text")["value"]
     tone_and_voice = extract_state_value(payload, "tone_and_voice")
     tone_and_voice = (
-        tone_and_voice.get("selected_option").get("value")
+        tone_and_voice["selected_option"].get("value")
         if tone_and_voice.get("selected_option")
         else None
     )

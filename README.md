@@ -1,5 +1,7 @@
 # ChatGPT in Slack
 
+> **:warning: The official Slack integration from OpenAI is now available! You may want to try it first: https://my.slack.com/marketplace/A097V82EGG2-chatgpt**
+
 Introducing a transformative app for Slack users, specifically designed to enhance your communication with [ChatGPT](https://openai.com/blog/chatgpt)!
 This app enables seamless interaction with ChatGPT via Slack channels, optimizing your planning and writing processes by leveraging AI technology.
 
@@ -123,6 +125,20 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python main.py
+```
+
+### Using .env for credential loading
+
+If you prefer using .env file to load env variables for local development, you can rename .env.example file to .env:
+    
+```bash
+cp .env.example .env
+```
+Then, replace the values in .env file with your own API keys and tokens:
+```text
+OPENAI_API_KEY=sk-your-openai-key
+SLACK_BOT_TOKEN=xoxb-your-slack-bot-token
+SLACK_APP_TOKEN=xapp-1-your-slack-app-token
 ```
 
 ## Running the App for Company Workspaces
