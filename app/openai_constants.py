@@ -21,6 +21,41 @@ GPT_4O_MODEL = "gpt-4o"
 GPT_4O_2024_05_13_MODEL = "gpt-4o-2024-05-13"
 GPT_4O_MINI_MODEL = "gpt-4o-mini"
 GPT_4O_MINI_2024_07_18_MODEL = "gpt-4o-mini-2024-07-18"
+GPT_4_1_MODEL = "gpt-4.1"
+GPT_4_1_2025_04_14_MODEL = "gpt-4.1-2025-04-14"
+GPT_4_1_MINI_MODEL = "gpt-4.1-mini"
+GPT_4_1_MINI_2025_04_14_MODEL = "gpt-4.1-mini-2025-04-14"
+GPT_4_1_NANO_MODEL = "gpt-4.1-nano"
+GPT_4_1_NANO_2025_04_14_MODEL = "gpt-4.1-nano-2025-04-14"
+GPT_5_CHAT_LATEST_MODEL = "gpt-5-chat-latest"
+GPT_5_SEARCH_API_MODEL = "gpt-5-search-api"
+GPT_5_SEARCH_API_2025_10_14_MODEL = "gpt-5-search-api-2025-10-14"
+GPT_5_MODEL = "gpt-5"
+GPT_5_MINI_MODEL = "gpt-5-mini"
+GPT_5_NANO_MODEL = "gpt-5-nano"
+GPT_5_1_CHAT_LATEST_MODEL = "gpt-5.1-chat-latest"
+GPT_5_1_MODEL = "gpt-5.1"
+GPT_5_1_2025_11_13_MODEL = "gpt-5.1-2025-11-13"
+GPT_5_2_CHAT_LATEST_MODEL = "gpt-5.2-chat-latest"
+GPT_5_2_MODEL = "gpt-5.2"
+GPT_5_2_2025_12_11_MODEL = "gpt-5.2-2025-12-11"
+GPT_5_3_CHAT_LATEST_MODEL = "gpt-5.3-chat-latest"
+GPT_5_4_MODEL = "gpt-5.4"
+GPT_5_4_MINI_MODEL = "gpt-5.4-mini"
+GPT_5_4_NANO_MODEL = "gpt-5.4-nano"
+O3_MODEL = "o3"
+O4_MINI_MODEL = "o4-mini"
+GPT_5_2025_08_07_MODEL = "gpt-5-2025-08-07"
+GPT_5_MINI_2025_08_07_MODEL = "gpt-5-mini-2025-08-07"
+GPT_5_NANO_2025_08_07_MODEL = "gpt-5-nano-2025-08-07"
+GPT_5_4_2026_03_05_MODEL = "gpt-5.4-2026-03-05"
+GPT_5_4_MINI_2026_03_17_MODEL = "gpt-5.4-mini-2026-03-17"
+GPT_5_4_NANO_2026_03_17_MODEL = "gpt-5.4-nano-2026-03-17"
+O3_2025_04_16_MODEL = "o3-2025-04-16"
+O4_MINI_2025_04_16_MODEL = "o4-mini-2025-04-16"
+
+# Default model used for token counting when none specified
+DEFAULT_TOKEN_COUNT_MODEL = GPT_3_5_TURBO_0613_MODEL
 
 # Tuple: (tokens_per_message, tokens_per_name)
 MODEL_TOKENS = {
@@ -41,11 +76,36 @@ MODEL_TOKENS = {
     GPT_4_1106_PREVIEW_MODEL: (3, 1),
     GPT_4_0125_PREVIEW_MODEL: (3, 1),
     GPT_4_TURBO_PREVIEW_MODEL: (3, 1),
+    # GPT-4.1 family
+    GPT_4_1_MODEL: (3, 1),
+    GPT_4_1_2025_04_14_MODEL: (3, 1),
+    GPT_4_1_MINI_MODEL: (3, 1),
+    GPT_4_1_MINI_2025_04_14_MODEL: (3, 1),
+    GPT_4_1_NANO_MODEL: (3, 1),
+    GPT_4_1_NANO_2025_04_14_MODEL: (3, 1),
     GPT_4_TURBO_2024_04_09_MODEL: (3, 1),
     # GPT-4o
     GPT_4O_2024_05_13_MODEL: (3, 1),
     # GPT-4o mini
     GPT_4O_MINI_2024_07_18_MODEL: (3, 1),
+    # GPT-5 chat latest
+    GPT_5_CHAT_LATEST_MODEL: (3, 1),
+    GPT_5_1_CHAT_LATEST_MODEL: (3, 1),
+    GPT_5_2_CHAT_LATEST_MODEL: (3, 1),
+    GPT_5_3_CHAT_LATEST_MODEL: (3, 1),
+    GPT_5_SEARCH_API_2025_10_14_MODEL: (3, 1),
+    # GPT-5 family (dated)
+    GPT_5_2025_08_07_MODEL: (3, 1),
+    GPT_5_MINI_2025_08_07_MODEL: (3, 1),
+    GPT_5_NANO_2025_08_07_MODEL: (3, 1),
+    GPT_5_1_2025_11_13_MODEL: (3, 1),
+    GPT_5_2_2025_12_11_MODEL: (3, 1),
+    GPT_5_4_2026_03_05_MODEL: (3, 1),
+    GPT_5_4_MINI_2026_03_17_MODEL: (3, 1),
+    GPT_5_4_NANO_2026_03_17_MODEL: (3, 1),
+    # Reasoning models (dated)
+    O3_2025_04_16_MODEL: (3, 1),
+    O4_MINI_2025_04_16_MODEL: (3, 1),
 }
 
 # Note that these fallbacks may change over time.
@@ -57,4 +117,82 @@ MODEL_FALLBACKS = {
     GPT_4_32K_MODEL: GPT_4_32K_0613_MODEL,
     GPT_4O_MODEL: GPT_4O_2024_05_13_MODEL,
     GPT_4O_MINI_MODEL: GPT_4O_MINI_2024_07_18_MODEL,
+    GPT_4_1_MODEL: GPT_4_1_2025_04_14_MODEL,
+    GPT_4_1_MINI_MODEL: GPT_4_1_MINI_2025_04_14_MODEL,
+    GPT_4_1_NANO_MODEL: GPT_4_1_NANO_2025_04_14_MODEL,
+    # GPT-5 and reasoning families to their dated variants
+    GPT_5_MODEL: GPT_5_2025_08_07_MODEL,
+    GPT_5_MINI_MODEL: GPT_5_MINI_2025_08_07_MODEL,
+    GPT_5_NANO_MODEL: GPT_5_NANO_2025_08_07_MODEL,
+    GPT_5_1_MODEL: GPT_5_1_2025_11_13_MODEL,
+    GPT_5_2_MODEL: GPT_5_2_2025_12_11_MODEL,
+    GPT_5_4_MODEL: GPT_5_4_2026_03_05_MODEL,
+    GPT_5_4_MINI_MODEL: GPT_5_4_MINI_2026_03_17_MODEL,
+    GPT_5_4_NANO_MODEL: GPT_5_4_NANO_2026_03_17_MODEL,
+    GPT_5_SEARCH_API_MODEL: GPT_5_SEARCH_API_2025_10_14_MODEL,
+    O3_MODEL: O3_2025_04_16_MODEL,
+    O4_MINI_MODEL: O4_MINI_2025_04_16_MODEL,
 }
+
+MODEL_CONTEXT_LENGTHS = {
+    # GPT-3.5
+    GPT_3_5_TURBO_0301_MODEL: 4096,
+    GPT_3_5_TURBO_0613_MODEL: 4096,
+    GPT_3_5_TURBO_16K_0613_MODEL: 16384,
+    GPT_3_5_TURBO_1106_MODEL: 16384,
+    GPT_3_5_TURBO_0125_MODEL: 16384,
+    # GPT-4
+    GPT_4_0314_MODEL: 8192,
+    GPT_4_0613_MODEL: 8192,
+    GPT_4_32K_0314_MODEL: 32768,
+    GPT_4_32K_0613_MODEL: 32768,
+    GPT_4_1106_PREVIEW_MODEL: 128000,
+    GPT_4_0125_PREVIEW_MODEL: 128000,
+    GPT_4_TURBO_PREVIEW_MODEL: 128000,  # GPT_4_TURBO_PREVIEW_MODEL is an alias for GPT_4_0125_PREVIEW_MODEL
+    GPT_4_TURBO_2024_04_09_MODEL: 128000,
+    # GPT-4o
+    GPT_4O_2024_05_13_MODEL: 128000,
+    # GPT-4o mini
+    GPT_4O_MINI_2024_07_18_MODEL: 128000,
+    # GPT-4.1 family
+    GPT_4_1_2025_04_14_MODEL: 1048576,
+    GPT_4_1_MINI_2025_04_14_MODEL: 1048576,
+    GPT_4_1_NANO_2025_04_14_MODEL: 1048576,
+    # GPT-5 chat latest
+    GPT_5_CHAT_LATEST_MODEL: 128000,
+    GPT_5_1_CHAT_LATEST_MODEL: 128000,
+    GPT_5_2_CHAT_LATEST_MODEL: 128000,
+    GPT_5_3_CHAT_LATEST_MODEL: 128000,
+    GPT_5_SEARCH_API_2025_10_14_MODEL: 128000,
+    # GPT-5 family (dated)
+    GPT_5_2025_08_07_MODEL: 128000,
+    GPT_5_MINI_2025_08_07_MODEL: 128000,
+    GPT_5_NANO_2025_08_07_MODEL: 128000,
+    GPT_5_1_2025_11_13_MODEL: 128000,
+    GPT_5_2_2025_12_11_MODEL: 400000,
+    GPT_5_4_2026_03_05_MODEL: 272000,
+    GPT_5_4_MINI_2026_03_17_MODEL: 400000,
+    GPT_5_4_NANO_2026_03_17_MODEL: 400000,
+    # Reasoning models (dated)
+    O3_2025_04_16_MODEL: 128000,
+    O4_MINI_2025_04_16_MODEL: 128000,
+}
+
+
+def resolve_model_alias(model: str) -> str:
+    """Resolves a model alias to a concrete version using MODEL_FALLBACKS.
+
+    Raises ValueError on circular dependency.
+    Returns the input when no fallback mapping is found.
+    """
+    if model is None:
+        return model
+    visited = {model}
+    while model in MODEL_FALLBACKS:
+        model = MODEL_FALLBACKS[model]
+        if model in visited:
+            raise ValueError(
+                f"Circular dependency detected in MODEL_FALLBACKS for model {model}"
+            )
+        visited.add(model)
+    return model

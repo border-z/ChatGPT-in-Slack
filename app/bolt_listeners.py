@@ -74,6 +74,9 @@ from app.slack_ui import (
     build_image_variations_result_modal,
     build_image_variations_wip_modal,
     build_image_variations_input_modal,
+    build_translation_result_modal,
+    build_translation_modal,
+    build_translation_wip_modal,
 )
 
 
@@ -182,10 +185,11 @@ def respond_to_app_mention(
         loading_text = translate(
             openai_api_key=openai_api_key, context=context, text=DEFAULT_LOADING_TEXT
         )
+        thread_ts = payload.get("thread_ts") or payload["ts"]
         wip_reply = post_wip_message(
             client=client,
             channel=context.channel_id,
-            thread_ts=payload["ts"],
+            thread_ts=thread_ts,
             loading_text=loading_text,
             messages=messages,
             user=context.user_id,
@@ -205,6 +209,8 @@ def respond_to_app_mention(
                 text=f":warning: The previous message is too long ({num_context_tokens}/{max_context_tokens} prompt tokens).",
                 messages=messages,
                 user=context.user_id,
+                is_final=True,
+                root_thread_ts=wip_reply["message"].get("thread_ts") or wip_reply["message"]["ts"],
             )
         else:
             stream = start_receiving_openai_response(
@@ -229,6 +235,7 @@ def respond_to_app_mention(
                 stream=stream,
                 timeout_seconds=OPENAI_TIMEOUT_SECONDS,
                 translate_markdown=TRANSLATE_MARKDOWN,
+                root_thread_ts=thread_ts,
             )
 
     except (APITimeoutError, TimeoutError):
@@ -421,10 +428,11 @@ def respond_to_new_message(
         loading_text = translate(
             openai_api_key=openai_api_key, context=context, text=DEFAULT_LOADING_TEXT
         )
+        root_thread_ts = payload.get("thread_ts") if is_in_dm_with_bot else thread_ts
         wip_reply = post_wip_message(
             client=client,
             channel=context.channel_id,
-            thread_ts=payload.get("thread_ts") if is_in_dm_with_bot else payload["ts"],
+            thread_ts=root_thread_ts,
             loading_text=loading_text,
             messages=messages,
             user=user_id,
@@ -444,6 +452,8 @@ def respond_to_new_message(
                 text=f":warning: The previous message is too long ({num_context_tokens}/{max_context_tokens} prompt tokens).",
                 messages=messages,
                 user=context.user_id,
+                is_final=True,
+                root_thread_ts=root_thread_ts,
             )
         else:
             stream = start_receiving_openai_response(
@@ -486,6 +496,7 @@ def respond_to_new_message(
                 stream=stream,
                 timeout_seconds=OPENAI_TIMEOUT_SECONDS,
                 translate_markdown=TRANSLATE_MARKDOWN,
+                root_thread_ts=root_thread_ts,
             )
 
     except (APITimeoutError, TimeoutError):
@@ -525,6 +536,8 @@ def respond_to_new_message(
                 ts=wip_reply["message"]["ts"],
                 text=text,
             )
+
+
 def respond_to_reaction(
     context: BoltContext,
     payload: dict,
@@ -581,6 +594,43 @@ def respond_to_reaction(
     except BaseException as e:
         logger.exception(f"Failed to translate message: {e}")
 #
+# Translate a message
+#
+
+
+def start_translation_modal(
+    client: WebClient,
+    body: dict,
+):
+    client.views_open(
+        trigger_id=body.get("trigger_id"),
+        view=build_translation_modal(body=body),
+    )
+
+
+def ack_translation_modal_submission(
+    ack: Ack,
+):
+    ack(
+        response_action="update",
+        view=build_translation_wip_modal(
+            "Got it! Working on the translation now ... :hourglass:"
+        ),
+    )
+
+
+def display_translation_result(
+    context: BoltContext,
+    payload: dict,
+    client: WebClient,
+):
+    client.views_update(
+        view_id=payload["id"],
+        view=build_translation_result_modal(context=context, payload=payload),
+    )
+
+
+#
 # Summarize a thread
 #
 
@@ -602,11 +652,10 @@ def ack_summarize_options_modal_submission(
     ack: Ack,
     payload: dict,
 ):
-    where_to_display = (
-        extract_state_value(payload, "where-to-share-summary")
-        .get("selected_option")
-        .get("value", "modal")
-    )
+    selected_option = extract_state_value(payload, "where-to-share-summary")[
+        "selected_option"
+    ]
+    where_to_display = selected_option.get("value", "modal")
     if where_to_display == "modal":
         ack(response_action="update", view=build_summarize_wip_modal())
     else:
@@ -621,11 +670,10 @@ def prepare_and_share_thread_summary(
 ):
     try:
         openai_api_key = context.get("OPENAI_API_KEY")
-        where_to_display = (
-            extract_state_value(payload, "where-to-share-summary")
-            .get("selected_option")
-            .get("value", "modal")
-        )
+        selected_option = extract_state_value(payload, "where-to-share-summary")[
+            "selected_option"
+        ]
+        where_to_display = selected_option.get("value", "modal")
         prompt = extract_state_value(payload, "prompt").get("value")
         private_metadata = json.loads(payload.get("private_metadata"))
         thread_content = build_thread_replies_as_combined_text(
@@ -692,7 +740,7 @@ def ack_proofreading_modal_submission(
     payload: dict,
     context: BoltContext,
 ):
-    original_text = extract_state_value(payload, "original_text").get("value")
+    original_text = extract_state_value(payload, "original_text")["value"]
     text = "\n".join(map(lambda s: f">{s}", original_text.split("\n")))
     view = build_proofreading_wip_modal(
         payload=payload,
@@ -711,10 +759,10 @@ def display_proofreading_result(
     text = ""
     try:
         openai_api_key = context.get("OPENAI_API_KEY")
-        original_text = extract_state_value(payload, "original_text").get("value")
+        original_text = extract_state_value(payload, "original_text")["value"]
         tone_and_voice = extract_state_value(payload, "tone_and_voice")
         tone_and_voice = (
-            tone_and_voice.get("selected_option").get("value")
+            tone_and_voice["selected_option"].get("value")
             if tone_and_voice.get("selected_option")
             else None
         )
@@ -811,14 +859,12 @@ def display_image_generation_result(
 ):
     text = ""
     try:
-        prompt = extract_state_value(payload, "image_generation_prompt").get("value")
-        size = extract_state_value(payload, "size").get("selected_option").get("value")
-        quality = (
-            extract_state_value(payload, "quality").get("selected_option").get("value")
+        prompt = extract_state_value(payload, "image_generation_prompt")["value"]
+        size = extract_state_value(payload, "size")["selected_option"].get("value")
+        quality = extract_state_value(payload, "quality")["selected_option"].get(
+            "value"
         )
-        style = (
-            extract_state_value(payload, "style").get("selected_option").get("value")
-        )
+        style = extract_state_value(payload, "style")["selected_option"].get("value")
         model = context.get(
             "OPENAI_IMAGE_GENERATION_MODEL", OPENAI_IMAGE_GENERATION_MODEL
         )
@@ -927,7 +973,7 @@ def display_image_variations_result(
     try:
         # https://platform.openai.com/docs/guides/images/variations-dall-e-2-only
         model = "dall-e-2"  # DALL·E 2 only
-        size = extract_state_value(payload, "size").get("selected_option").get("value")
+        size = extract_state_value(payload, "size")["selected_option"].get("value")
         image_files = extract_state_value(payload, "input_files").get("files")
 
         start_time = time.time()
@@ -1061,7 +1107,7 @@ def ack_chat_from_scratch_modal_submission(
     ack: Ack,
     payload: dict,
 ):
-    prompt = extract_state_value(payload, "prompt").get("value")
+    prompt = extract_state_value(payload, "prompt")["value"]
     text = "\n".join(map(lambda s: f">{s}", prompt.split("\n")))
     view = build_from_scratch_wip_modal(text)
     ack(response_action="update", view=view)
@@ -1076,7 +1122,7 @@ def display_chat_from_scratch_result(
     text = ""
     openai_api_key = context.get("OPENAI_API_KEY")
     try:
-        prompt = extract_state_value(payload, "prompt").get("value")
+        prompt = extract_state_value(payload, "prompt")["value"]
         text = "\n".join(map(lambda s: f">{s}", prompt.split("\n")))
         result = generate_chatgpt_response(
             context=context,
@@ -1114,6 +1160,12 @@ def register_listeners(app: App):
     app.view("request-thread-summary")(
         ack=ack_summarize_options_modal_submission,
         lazy=[prepare_and_share_thread_summary],
+    )
+
+    # Translate a message
+    app.shortcut("translate-message")(ack=just_ack, lazy=[start_translation_modal])
+    app.view("translate-message")(
+        ack=ack_translation_modal_submission, lazy=[display_translation_result]
     )
 
     # Use templates

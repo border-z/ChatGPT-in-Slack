@@ -1,5 +1,9 @@
+from dotenv import load_dotenv
 import logging
 import os
+
+# Load .env file before importing app.env to ensure environment variables are available
+load_dotenv()
 
 from slack_bolt import App, BoltContext
 from slack_sdk.web import WebClient
@@ -20,7 +24,6 @@ from app.env import (
     OPENAI_IMAGE_GENERATION_MODEL,
 )
 from app.slack_ui import build_home_tab
-
 
 if __name__ == "__main__":
     from slack_bolt.adapter.socket_mode import SocketModeHandler
