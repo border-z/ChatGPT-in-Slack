@@ -88,9 +88,9 @@ export SLACK_BOT_TOKEN=xoxb-...
 # Visit https://platform.openai.com/account/api-keys for this token
 export OPENAI_API_KEY=sk-...
 
-# Optional: gpt-3.5-turbo and newer ones are currently supported (default: gpt-3.5-turbo)
-export OPENAI_MODEL=gpt-4o
-# Optional: Model temperature between 0 and 2 (default: 1.0)
+# Optional: Choose a supported model (default: gpt-5.6-luna)
+export OPENAI_MODEL=gpt-5.6-luna
+# Optional: Model temperature between 0 and 2 when supported (default: 1.0)
 export OPENAI_TEMPERATURE=1
 # Optional: You can adjust the timeout seconds for OpenAI calls (default: 30)
 export OPENAI_TIMEOUT_SECONDS=60
@@ -108,13 +108,16 @@ export REDACTION_ENABLED=true
 # Optional: When the string is "true", this app shares image files with OpenAI (default: false)
 export IMAGE_FILE_ACCESS_ENABLED=true
 
-# To use Azure OpenAI, set the following optional environment variables according to your environment
+# To use the stable Azure OpenAI v1 API, set the following optional environment variables according to your environment
+# Remove any existing OPENAI_API_VERSION setting; v1 does not use dated API versions.
 # default: None
 export OPENAI_API_TYPE=azure
 # default: https://api.openai.com/v1
 export OPENAI_API_BASE=https://YOUR_RESOURCE_NAME.openai.azure.com
-# default: None
-export OPENAI_API_VERSION=2023-05-15
+# This app uses one Azure deployment for chat and translation. When upgrading
+# from an older model, replace that deployment with GPT-5.6 Luna and align
+# OPENAI_MODEL and saved workspace model selections with gpt-5.6-luna. Legacy
+# or mismatched deployments are not compatible with the new request parameters.
 # default: None
 export OPENAI_DEPLOYMENT_ID=YOUR-DEPLOYMENT-ID
 

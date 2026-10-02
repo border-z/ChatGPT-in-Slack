@@ -4,6 +4,7 @@ from app.openai_constants import (
     MODEL_FALLBACKS,
     MODEL_TOKENS,
     MODEL_CONTEXT_LENGTHS,
+    CHAT_LATEST_MODEL,
     GPT_4_MODEL,
     GPT_4_0613_MODEL,
     GPT_5_1_MODEL,
@@ -16,6 +17,12 @@ from app.openai_constants import (
     GPT_5_4_2026_03_05_MODEL,
     GPT_5_4_MINI_2026_03_17_MODEL,
     GPT_5_4_NANO_2026_03_17_MODEL,
+    GPT_5_5_MODEL,
+    GPT_5_5_2026_04_23_MODEL,
+    GPT_5_6_MODEL,
+    GPT_5_6_SOL_MODEL,
+    GPT_5_6_TERRA_MODEL,
+    GPT_5_6_LUNA_MODEL,
 )
 
 def test_alias_resolution():
@@ -42,6 +49,49 @@ def test_gpt_5_4_mini_alias_resolution():
 def test_gpt_5_4_nano_alias_resolution():
     """Ensures the GPT-5.4-nano alias resolves to the dated release."""
     assert resolve_model_alias(GPT_5_4_NANO_MODEL) == GPT_5_4_NANO_2026_03_17_MODEL
+
+def test_gpt_5_5_alias_resolution():
+    """Ensures the GPT-5.5 alias resolves to the dated release."""
+    assert resolve_model_alias(GPT_5_5_MODEL) == GPT_5_5_2026_04_23_MODEL
+
+
+def test_gpt_5_6_model_support():
+    """Ensures GPT-5.6 aliases and model metadata are registered."""
+    from app.openai_ops import calculate_num_tokens, context_length
+
+    gpt_5_6_models = (
+        GPT_5_6_SOL_MODEL,
+        GPT_5_6_TERRA_MODEL,
+        GPT_5_6_LUNA_MODEL,
+    )
+
+    assert resolve_model_alias(GPT_5_6_MODEL) == GPT_5_6_SOL_MODEL
+    assert MODEL_FALLBACKS[GPT_5_6_MODEL] == GPT_5_6_SOL_MODEL
+    assert context_length(GPT_5_6_MODEL) == 272000
+    for model in gpt_5_6_models:
+        assert resolve_model_alias(model) == model
+        assert MODEL_TOKENS[model] == (3, 1)
+        assert MODEL_CONTEXT_LENGTHS[model] == 272000
+        assert context_length(model) == 272000
+        assert calculate_num_tokens(
+            messages=[{"role": "user", "content": "hello"}],
+            model=model,
+        ) > 0
+
+
+def test_chat_latest_model_support():
+    """Ensures chat-latest has direct token and context definitions."""
+    from app.openai_ops import calculate_num_tokens, context_length
+
+    assert resolve_model_alias(CHAT_LATEST_MODEL) == CHAT_LATEST_MODEL
+    assert CHAT_LATEST_MODEL not in MODEL_FALLBACKS
+    assert MODEL_TOKENS[CHAT_LATEST_MODEL] == (3, 1)
+    assert MODEL_CONTEXT_LENGTHS[CHAT_LATEST_MODEL] == 400000
+    assert context_length(CHAT_LATEST_MODEL) == 400000
+    assert calculate_num_tokens(
+        messages=[{"role": "user", "content": "hello"}],
+        model=CHAT_LATEST_MODEL,
+    ) > 0
 
 def test_unregistered_model_fails():
     """Tests that resolving an unregistered model raises NotImplementedError."""

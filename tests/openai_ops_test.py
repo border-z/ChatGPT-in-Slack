@@ -9,6 +9,11 @@ from app.openai_constants import (
     GPT_5_SEARCH_API_MODEL,
     GPT_5_3_CHAT_LATEST_MODEL,
     GPT_5_4_MODEL,
+    GPT_5_5_MODEL,
+    GPT_5_6_MODEL,
+    GPT_5_6_SOL_MODEL,
+    GPT_5_6_TERRA_MODEL,
+    GPT_5_6_LUNA_MODEL,
     MAX_TOKENS,
 )
 import pytest
@@ -25,11 +30,10 @@ class _FakeResponse:
 
 @pytest.fixture
 def fake_clients(monkeypatch):
-    """Patch OpenAI/AzureOpenAI with fakes and capture init/create kwargs.
+    """Patch OpenAI with a fake and capture init/create kwargs.
 
     Returns a dict store capturing:
     - init_openai_kwargs
-    - init_azure_kwargs
     - create_kwargs
     """
     import app.openai_api_utils as api_utils
@@ -50,13 +54,7 @@ def fake_clients(monkeypatch):
             store["init_openai_kwargs"] = kwargs
             self.chat = _FakeChat()
 
-    class FakeAzureOpenAI:
-        def __init__(self, **kwargs):
-            store["init_azure_kwargs"] = kwargs
-            self.chat = _FakeChat()
-
     monkeypatch.setattr(api_utils, "OpenAI", FakeOpenAI)
-    monkeypatch.setattr(api_utils, "AzureOpenAI", FakeAzureOpenAI)
     return store
 
 
@@ -155,6 +153,7 @@ def test_messages_within_context_window_passes_model(monkeypatch):
 @pytest.mark.parametrize(
     "model,expected",
     [
+        ("chat-latest", False),
         ("gpt-5-chat-latest", False),
         ("gpt-5.1-chat-latest", False),
         ("gpt-5.2-chat-latest", False),
@@ -165,6 +164,12 @@ def test_messages_within_context_window_passes_model(monkeypatch):
         ("gpt-5.4", True),
         ("gpt-5.4-mini", True),
         ("gpt-5.4-nano", True),
+        ("gpt-5.5", True),
+        ("gpt-5.5-2026-04-23", True),
+        (GPT_5_6_MODEL, True),
+        (GPT_5_6_SOL_MODEL, True),
+        (GPT_5_6_TERRA_MODEL, True),
+        (GPT_5_6_LUNA_MODEL, True),
         ("gpt-5-nano", True),
         ("o3", True),
         ("o4-mini", True),
@@ -180,6 +185,7 @@ def test_is_reasoning_heuristics(model, expected):
 @pytest.mark.parametrize(
     "model,is_reasoning,temperature,timeout,user",
     [
+        ("chat-latest", False, 0.6, 10, "U111"),
         (GPT_4O_MODEL, False, 0.7, 12, "U123"),
         ("o3", True, 1.0, 5, "U234"),
         (GPT_5_SEARCH_API_MODEL, False, 0.5, 8, "U345"),
@@ -188,6 +194,11 @@ def test_is_reasoning_heuristics(model, expected):
         ("gpt-5.2-chat-latest", False, 0.55, 11, "U678"),
         (GPT_5_3_CHAT_LATEST_MODEL, False, 0.55, 11, "U789"),
         (GPT_5_4_MODEL, True, 0.55, 11, "U890"),
+        (GPT_5_5_MODEL, True, 0.55, 11, "U895"),
+        (GPT_5_6_MODEL, True, 0.55, 11, "U896"),
+        (GPT_5_6_SOL_MODEL, True, 0.55, 11, "U897"),
+        (GPT_5_6_TERRA_MODEL, True, 0.55, 11, "U898"),
+        (GPT_5_6_LUNA_MODEL, True, 0.55, 11, "U899"),
         ("gpt-5.4-mini", True, 0.55, 11, "U901"),
         ("gpt-5.4-nano", True, 0.55, 11, "U902"),
     ],
@@ -209,14 +220,13 @@ def test_sync_tokens_and_sampling_behavior(
             if api_type == "openai"
             else "https://azure.example"
         ),
-        openai_api_version=("" if api_type == "openai" else "2025-01-01"),
         openai_deployment_id=("" if api_type == "openai" else "dep-xyz"),
         openai_organization_id=None,
         timeout_seconds=timeout,
     )
 
     kwargs = fake_clients["create_kwargs"]
-    is_search = kwargs.get("model", "").startswith("gpt-5-search")
+    is_search = model.startswith("gpt-5-search")
     token_keys = {"max_tokens", "max_completion_tokens"} & kwargs.keys()
     assert len(token_keys) == 1, f"Expected exactly one token key, got {token_keys}"
     token_key = token_keys.pop()
@@ -244,7 +254,10 @@ def test_sync_tokens_and_sampling_behavior(
         ):
             assert k not in kwargs
     else:
-        if kwargs.get("model", "").lower().startswith("gpt-5"):
+        if model == "chat-latest":
+            assert token_key == "max_completion_tokens"
+            assert kwargs.get("max_completion_tokens") == MAX_TOKENS
+        elif model.lower().startswith("gpt-5"):
             assert token_key == "max_completion_tokens"
             assert kwargs.get("max_completion_tokens") == MAX_TOKENS
         else:
@@ -261,8 +274,10 @@ def test_sync_tokens_and_sampling_behavior(
             )
             if k in kwargs
         }
-        ml = kwargs.get("model", "").lower()
-        if ml.startswith(("gpt-5.1", "gpt-5.2", "gpt-5.3")):
+        ml = model.lower()
+        if model == "chat-latest":
+            assert sampling_keys == set()
+        elif ml.startswith(("gpt-5.1", "gpt-5.2", "gpt-5.3")):
             assert sampling_keys == set()
         elif ml.startswith("gpt-5"):
             assert sampling_keys == {
@@ -295,14 +310,20 @@ def test_sync_tokens_and_sampling_behavior(
     else:
         assert kwargs.get("n") == 1
     assert kwargs.get("user") == user
+    if model == GPT_5_6_LUNA_MODEL:
+        assert kwargs.get("reasoning_effort") == "none"
+    else:
+        assert "reasoning_effort" not in kwargs
     assert kwargs.get("stream") is False
     assert kwargs.get("timeout") == timeout
+    assert kwargs.get("model") == ("dep-xyz" if api_type == "azure" else model)
 
 
 @pytest.mark.parametrize("api_type", ["openai", "azure"])
 @pytest.mark.parametrize("with_functions", [True, False])
+@pytest.mark.parametrize("model", [GPT_4O_MODEL, GPT_5_6_LUNA_MODEL])
 def test_stream_functions_and_timeout(
-    fake_clients, api_type, with_functions, monkeypatch
+    fake_clients, api_type, with_functions, model, monkeypatch
 ):
     import app.openai_ops as ops
     import sys
@@ -321,7 +342,7 @@ def test_stream_functions_and_timeout(
 
     _ = ops.start_receiving_openai_response(
         openai_api_key="k",
-        model=GPT_4O_MODEL,
+        model=model,
         temperature=0.5,
         messages=[{"role": "user", "content": "hi"}],
         user="U345",
@@ -331,7 +352,6 @@ def test_stream_functions_and_timeout(
             if api_type == "openai"
             else "https://azure.example"
         ),
-        openai_api_version=("" if api_type == "openai" else "2025-01-01"),
         openai_deployment_id=("" if api_type == "openai" else "dep-xyz"),
         openai_organization_id=None,
         function_call_module_name=(module_name if with_functions else None),
@@ -341,6 +361,12 @@ def test_stream_functions_and_timeout(
     assert kwargs.get("stream") is True
     assert "timeout" not in kwargs
     assert ("functions" in kwargs) is with_functions
+    assert kwargs.get("model") == ("dep-xyz" if api_type == "azure" else model)
+    if model == GPT_5_6_LUNA_MODEL:
+        expected_effort = "low" if with_functions and api_type == "openai" else "none"
+        assert kwargs.get("reasoning_effort") == expected_effort
+    else:
+        assert "reasoning_effort" not in kwargs
 
 
 @pytest.mark.parametrize("base_url", ["", "   "])
@@ -353,7 +379,6 @@ def test_create_openai_client_openai_org_and_base_url_none(fake_clients, base_ur
         get=lambda k: {
             "OPENAI_API_TYPE": None,
             "OPENAI_API_KEY": "k",
-            "OPENAI_API_VERSION": "v",
             "OPENAI_API_BASE": base_url,
             "OPENAI_DEPLOYMENT_ID": None,
             "OPENAI_ORG_ID": "org_X",
@@ -373,18 +398,58 @@ def test_create_openai_client_azure(fake_clients):
         get=lambda k: {
             "OPENAI_API_TYPE": "azure",
             "OPENAI_API_KEY": "k",
-            "OPENAI_API_VERSION": "2025-01-01",
             "OPENAI_API_BASE": "https://azure.example",
             "OPENAI_DEPLOYMENT_ID": "dep-1",
             "OPENAI_ORG_ID": None,
         }.get(k)
     )
     _ = ops.create_openai_client(ctx)  # type: ignore[arg-type]
-    init = fake_clients["init_azure_kwargs"]
+    init = fake_clients["init_openai_kwargs"]
     assert init.get("api_key") == "k"
-    assert init.get("api_version") == "2025-01-01"
-    assert init.get("azure_endpoint") == "https://azure.example"
-    assert init.get("azure_deployment") == "dep-1"
+    assert init.get("base_url") == "https://azure.example/openai/v1/"
+    assert "organization" not in init
+
+
+@pytest.mark.parametrize(
+    "api_type,expected_function_effort", [(None, "low"), ("azure", "none")]
+)
+def test_function_call_token_probe_uses_luna_reasoning_effort(
+    monkeypatch, api_type, expected_function_effort
+):
+    import app.openai_ops as ops
+
+    calls = []
+
+    class FakeCompletions:
+        def create(self, **kwargs):
+            calls.append(kwargs)
+            prompt_tokens = 8 if "functions" in kwargs else 3
+            return _FakeResponse({"usage": {"prompt_tokens": prompt_tokens}})
+
+    class FakeClient:
+        class Chat:
+            completions = FakeCompletions()
+
+        chat = Chat()
+
+    class FakeModule:
+        functions = [{"name": "lookup", "parameters": {"type": "object"}}]
+
+    class FakeContext:
+        def get(self, key):
+            return {
+                "OPENAI_FUNCTION_CALL_MODULE_NAME": "app.fake_functions_mod",
+                "OPENAI_MODEL": GPT_5_6_LUNA_MODEL,
+                "OPENAI_API_TYPE": api_type,
+            }.get(key)
+
+    monkeypatch.setattr(ops, "_prompt_tokens_used_by_function_call_cache", None)
+    monkeypatch.setattr(ops, "create_openai_client", lambda context: FakeClient())
+    monkeypatch.setattr(ops, "import_module", lambda name: FakeModule())
+
+    assert ops.calculate_tokens_necessary_for_function_call(FakeContext()) == 5
+    assert calls[0]["reasoning_effort"] == expected_function_effort
+    assert calls[1]["reasoning_effort"] == "none"
 
 
 def test_stream_timeout_guard_raises(fake_clients):
@@ -399,7 +464,6 @@ def test_stream_timeout_guard_raises(fake_clients):
             user="U888",
             openai_api_type="openai",
             openai_api_base="https://api.example/v1",
-            openai_api_version="",
             openai_deployment_id="",
             openai_organization_id=None,
             stream=True,
@@ -409,15 +473,13 @@ def test_stream_timeout_guard_raises(fake_clients):
 
 
 @pytest.mark.parametrize(
-    "api_type,base,version,deployment,org",
+    "api_type,base,deployment,org",
     [
-        ("openai", "", "", "", "org_X"),
-        ("azure", "https://azure.example", "2025-01-01", "dep-xyz", None),
+        ("openai", "", "", "org_X"),
+        ("azure", "https://azure.example", "dep-xyz", None),
     ],
 )
-def test_sync_client_init_params(
-    fake_clients, api_type, base, version, deployment, org
-):
+def test_sync_client_init_params(fake_clients, api_type, base, deployment, org):
     import app.openai_ops as ops
 
     _ = ops.make_synchronous_openai_call(
@@ -428,7 +490,6 @@ def test_sync_client_init_params(
         user="U_init",
         openai_api_type=api_type,
         openai_api_base=base,
-        openai_api_version=version,
         openai_deployment_id=deployment,
         openai_organization_id=org,
         timeout_seconds=3,
@@ -440,8 +501,49 @@ def test_sync_client_init_params(
         assert init.get("base_url") is None  # empty string normalized
         assert init.get("organization") == "org_X"
     else:
-        init = fake_clients["init_azure_kwargs"]
+        init = fake_clients["init_openai_kwargs"]
         assert init.get("api_key") == "k"
-        assert init.get("api_version") == "2025-01-01"
-        assert init.get("azure_endpoint") == "https://azure.example"
-        assert init.get("azure_deployment") == "dep-xyz"
+        assert init.get("base_url") == "https://azure.example/openai/v1/"
+        assert "organization" not in init
+
+
+def test_function_call_token_probe_uses_azure_deployment(monkeypatch):
+    import app.openai_ops as ops
+    from types import SimpleNamespace
+
+    create_kwargs = []
+
+    class FakeCompletions:
+        def create(self, **kwargs):
+            create_kwargs.append(kwargs)
+            prompt_tokens = 20 if "functions" in kwargs else 5
+            return _FakeResponse({"usage": {"prompt_tokens": prompt_tokens}})
+
+    client = SimpleNamespace(
+        chat=SimpleNamespace(completions=FakeCompletions()),
+    )
+    context = SimpleNamespace(
+        get=lambda key: {
+            "OPENAI_FUNCTION_CALL_MODULE_NAME": "app.fake_functions_mod",
+            "OPENAI_MODEL": GPT_4O_MODEL,
+            "OPENAI_API_TYPE": "azure",
+            "OPENAI_DEPLOYMENT_ID": "dep-xyz",
+        }.get(key)
+    )
+    module = SimpleNamespace(
+        functions=[{"name": "test", "parameters": {"type": "object"}}]
+    )
+    monkeypatch.setattr(ops, "create_openai_client", lambda context: client)
+    monkeypatch.setattr(ops, "import_module", lambda name: module)
+    previous_cache = ops._prompt_tokens_used_by_function_call_cache
+    ops._prompt_tokens_used_by_function_call_cache = None
+
+    try:
+        assert (
+            ops.calculate_tokens_necessary_for_function_call(context)  # type: ignore[arg-type]
+            == 15
+        )
+    finally:
+        ops._prompt_tokens_used_by_function_call_cache = previous_cache
+
+    assert [kwargs["model"] for kwargs in create_kwargs] == ["dep-xyz", "dep-xyz"]
